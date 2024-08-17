@@ -7,6 +7,7 @@ import math
 import os
 import os.path
 import posixpath
+import select
 import subprocess
 import sys
 import tempfile
@@ -120,16 +121,23 @@ def noop(_: str):
 
 @contextmanager
 def print_and_capture(
-    stream: "IO[str]", callback: Callable[[str], None] = noop
+    stream: "IO[bytes]", callback: Callable[[str], None] = noop
 ) -> "Iterator[list[str]]":
     lines: list[str] = []
     append = lines.append
 
     def loop() -> None:
-        for line in iter(stream.readline, ""):
-            print(line, end="")
-            callback(line)
-            append(line)
+        while True:
+            # Use select to check if the stream is ready for reading
+            ready, _, _ = select.select([stream], [], [], 0.1)
+            if ready:
+                byt = stream.readline()  # Read a line if available
+                if not byt:  # EOF reached
+                    break
+                line = byt.decode("utf-8")
+                print(line, end="")
+                callback(line)
+                append(line)
 
     thread = Thread(target=loop, daemon=True)
     thread.start()
@@ -2128,7 +2136,7 @@ class Catalog:
             stdout=subprocess.PIPE if capture_output else None,
             stderr=subprocess.STDOUT if capture_output else None,
             bufsize=1,
-            text=True,
+            text=False,
             **kwargs,
         ) as proc:
             os.close(w)
