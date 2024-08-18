@@ -7,7 +7,6 @@ import math
 import os
 import os.path
 import posixpath
-import select
 import subprocess
 import sys
 import tempfile
@@ -127,17 +126,18 @@ def print_and_capture(
     append = lines.append
 
     def loop() -> None:
+        buffer = b""
         while True:
-            # Use select to check if the stream is ready for reading
-            ready, _, _ = select.select([stream], [], [], 0.1)
-            if ready:
-                byt = stream.readline()  # Read a line if available
-                if not byt:  # EOF reached
-                    break
-                line = byt.decode("utf-8")
+            byt = stream.read(1)  # Read one byte at a time
+            if not byt:
+                break  # End of stream
+            buffer += byt
+            if byt in (b"\n", b"\r"):  # Check for newline or carriage return
+                line = buffer.decode("utf-8")
                 print(line, end="")
                 callback(line)
                 append(line)
+                buffer = b""  # Clear buffer for next line
 
     thread = Thread(target=loop, daemon=True)
     thread.start()
