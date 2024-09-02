@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Iterable, Iterator
+import time
 from queue import Empty, Full, Queue
 from struct import pack, unpack
 from time import sleep
@@ -7,10 +7,11 @@ from typing import Any
 
 import msgpack
 
-from datachain.query.batch import RowsOutput, RowsOutputBatch
+from datachain.query.batch import RowsOutputBatch
 
 DEFAULT_BATCH_SIZE = 10000
 STOP_SIGNAL = "STOP"
+EMPTY_SIGNAL = "EMPTY"
 OK_STATUS = "OK"
 FINISHED_STATUS = "FINISHED"
 FAILED_STATUS = "FAILED"
@@ -26,17 +27,20 @@ NOTIFY_STATUS = "NOTIFY"
 # https://github.com/python/cpython/issues/108645
 
 
-def get_from_queue(queue: Queue) -> Any:
+def get_from_queue(queue: Queue, timeout: float = 0) -> Any:
     """
     Gets an item from a queue.
     This is required to handle signals, such as KeyboardInterrupt exceptions
     while waiting for items to be available, although only on certain installations.
     (See the above comment for more context.)
     """
+    started_at = time.time()
     while True:
         try:
             return queue.get_nowait()
         except Empty:
+            if 0 < timeout <= time.time() - started_at:
+                return EMPTY_SIGNAL
             sleep(0.01)
 
 
@@ -108,13 +112,3 @@ def _msgpack_unpack_extended_types(code: int, data: bytes) -> Any:
 
 def msgpack_unpack(data: bytes) -> Any:
     return msgpack.unpackb(data, ext_hook=_msgpack_unpack_extended_types)
-
-
-def marshal(obj: Iterator[RowsOutput]) -> Iterable[bytes]:
-    for row in obj:
-        yield msgpack_pack(row)
-
-
-def unmarshal(obj: Iterator[bytes]) -> Iterable[RowsOutput]:
-    for row in obj:
-        yield msgpack_unpack(row)
