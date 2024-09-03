@@ -20,7 +20,6 @@ from datachain.query.dataset import (
     process_udf_outputs,
 )
 from datachain.query.queue import (
-    EMPTY_SIGNAL,
     get_from_queue,
     msgpack_pack,
     msgpack_unpack,
@@ -408,16 +407,7 @@ class UDFWorker:
                 ids = [row[0] for row in batch.rows]
                 rows = warehouse.dataset_rows_select(self.query.where(col_id.in_(ids)))
                 yield RowsOutputBatch(list(rows))
-            return
-
-        ids = []
-        while (batch := get_from_queue(self.task_queue, timeout=1)) != STOP_SIGNAL:
-            if batch != EMPTY_SIGNAL:
-                ids.append(batch[0])
-            if len(ids) >= 1000 or (ids and batch == EMPTY_SIGNAL):
-                rows = warehouse.dataset_rows_select(self.query.where(col_id.in_(ids)))
+        else:
+            while (row := get_from_queue(self.task_queue)) != STOP_SIGNAL:
+                rows = warehouse.dataset_rows_select(self.query.where(col_id == row[0]))
                 yield from rows
-                ids.clear()
-        if ids:
-            rows = warehouse.dataset_rows_select(self.query.where(col_id.in_(ids)))
-            yield from rows
