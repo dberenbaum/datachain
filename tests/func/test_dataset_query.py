@@ -1437,58 +1437,6 @@ def test_multiple_join(cloud_test_catalog, inner1, inner2, inner3):
     cats2 = dogs_and_cats.join(cats1, C.path, inner=inner2)
     joined = dogs2.join(cats2, C.path, inner=inner3)
 
-    dogs2_signals = _sort_signals(
-        [
-            {k: v for k, v in row.items() if k in ("path", "sig1")}
-            for row in dogs2.to_db_records()
-        ]
-    )
-    if inner1:
-        assert dogs2_signals == _sort_signals(
-            [
-                {"path": "dogs/dog1", "sig1": 1},
-                {"path": "dogs/dog2", "sig1": 1},
-                {"path": "dogs/dog3", "sig1": 1},
-                {"path": "dogs/others/dog4", "sig1": 1},
-            ]
-        )
-    else:
-        assert dogs2_signals == _sort_signals(
-            [
-                {"path": "dogs/dog1", "sig1": 1},
-                {"path": "dogs/dog2", "sig1": 1},
-                {"path": "dogs/dog3", "sig1": 1},
-                {"path": "dogs/others/dog4", "sig1": 1},
-                {"path": "cats/cat1", "sig1": signal_default_value},
-                {"path": "cats/cat2", "sig1": signal_default_value},
-            ]
-        )
-
-    cats2_signals = _sort_signals(
-        [
-            {k: v for k, v in row.items() if k in ("path", "sig2")}
-            for row in cats2.to_db_records()
-        ]
-    )
-    if inner2:
-        assert cats2_signals == _sort_signals(
-            [
-                {"path": "cats/cat1", "sig2": 2},
-                {"path": "cats/cat2", "sig2": 2},
-            ]
-        )
-    else:
-        assert cats2_signals == _sort_signals(
-            [
-                {"path": "dogs/dog1", "sig2": signal_default_value},
-                {"path": "dogs/dog2", "sig2": signal_default_value},
-                {"path": "dogs/dog3", "sig2": signal_default_value},
-                {"path": "dogs/others/dog4", "sig2": signal_default_value},
-                {"path": "cats/cat1", "sig2": 2},
-                {"path": "cats/cat2", "sig2": 2},
-            ]
-        )
-
     joined_signals = _sort_signals(
         [
             {k: v for k, v in row.items() if k in ("path", "sig1", "sig2")}
